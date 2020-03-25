@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package span.v1;
+
+option go_package = "span/v1;span";
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.goproto_registration) = true;
+option (gogoproto.messagename_all) = true;
+
+message Span {
+    option (gogoproto.goproto_getters) = false;
+
+    TraceID trace_id = 1 [(gogoproto.customname) = "TraceID", (gogoproto.nullable) = false];
+    uint64 span_id = 2 [(gogoproto.customname) = "SpanID"];
+    uint64 parent_id = 3 [(gogoproto.customname) = "ParentID"];
+    uint32 flags = 4;
+
+    map<string, string> baggage = 10;
+
+    message TraceID {
+        option (gogoproto.goproto_getters) = false;
+
+        uint64 Low = 1;
+        uint64 High = 2;
+    }
+}
