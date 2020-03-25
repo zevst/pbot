@@ -3,7 +3,7 @@ package protobuf_span
 import (
 	ot "github.com/opentracing/opentracing-go"
 	jc "github.com/uber/jaeger-client-go"
-	"protobuf-span/pb/span/v1"
+	"github.com/zevst/protobuf_span/pb/span/v1"
 )
 
 //ProtoBufSpanFormat is an OpenTracing carrier format constant
