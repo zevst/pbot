@@ -1,4 +1,4 @@
-module protobuf-span
+module github.com/zevst/protobuf_span
 
 go 1.13
 
