@@ -1,9 +1,9 @@
-package protobuf_span
+package pbot
 
 import (
 	ot "github.com/opentracing/opentracing-go"
 	jc "github.com/uber/jaeger-client-go"
-	"github.com/zevst/protobuf_span/pb/span/v1"
+	jcc "github.com/uber/jaeger-client-go/config"
 )
 
 //ProtoBufSpanFormat is an OpenTracing carrier format constant
@@ -33,44 +33,34 @@ func NewPropagator(opts ...Option) *propagator {
 
 var emptyContext = jc.SpanContext{}
 
-func (p propagator) Inject(sCtx jc.SpanContext, aCarrier interface{}) (err error) {
-	carrier, ok := aCarrier.(*[]byte)
+func Injector(p *propagator) jcc.Option {
+	return jcc.Injector(Format, p)
+}
+
+func Extractor(p *propagator) jcc.Option {
+	return jcc.Extractor(Format, p)
+}
+
+func (p propagator) Inject(sCtx jc.SpanContext, aCarrier interface{}) error {
+	c, ok := aCarrier.(SpanProtobufSetters)
 	if !ok {
 		return ot.ErrInvalidCarrier
 	}
-	s := span.Span{
-		TraceID:  span.Span_TraceID{Low: sCtx.TraceID().Low, High: sCtx.TraceID().High},
-		SpanID:   uint64(sCtx.SpanID()),
-		ParentID: uint64(sCtx.ParentID()),
-		Flags:    uint32(sCtx.Flags()),
-		Baggage:  make(map[string]string),
-	}
-	sCtx.ForeachBaggageItem(func(k, v string) bool {
-		s.Baggage[p.baggagePrefix+k] = v
-		return true
-	})
-	*carrier, err = s.Marshal()
-	return err
+	c.SetTraceID(sCtx.TraceID())
+	c.SetSpanID(sCtx.SpanID())
+	c.SetParentID(sCtx.ParentID())
+	c.SetFlags(sCtx.Flags())
+	sCtx.ForeachBaggageItem(func(k, v string) bool { return c.SetBaggage(p.baggagePrefix+k, v) })
+	return nil
 }
 
 func (p propagator) Extract(aCarrier interface{}) (jc.SpanContext, error) {
-	b, ok := aCarrier.(*[]byte)
+	c, ok := aCarrier.(SpanProtobufGetters)
 	if !ok {
 		return emptyContext, ot.ErrInvalidCarrier
 	}
-	var carrier span.Span
-	if err := carrier.Unmarshal(*b); err != nil {
-		return emptyContext, err
-	}
-	traceId := jc.TraceID{High: carrier.TraceID.High, Low: carrier.TraceID.Low}
-	if !traceId.IsValid() {
+	if !c.GetTraceID().IsValid() {
 		return emptyContext, ot.ErrSpanContextNotFound
 	}
-	return jc.NewSpanContext(
-		traceId,
-		jc.SpanID(carrier.SpanID),
-		jc.SpanID(carrier.ParentID),
-		carrier.Flags != 0,
-		carrier.Baggage,
-	), nil
+	return jc.NewSpanContext(c.GetTraceID(), c.GetSpanID(), c.GetParentID(), c.GetFlags(), c.GetBaggage()), nil
 }
